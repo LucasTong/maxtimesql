@@ -1,0 +1,779 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hdsx.huanbohai.service.mapper.RhpwkMapper">
+
+    <select id="getRhpwkList" parameterType="com.hdsx.huanbohai.api.pwk.vo.RhpwkQueryParam"
+            resultType="com.hdsx.huanbohai.api.pwk.vo.RhpwkList">
+        select
+            <include refid="BaseColunm"/>
+        from (
+            select
+                <include refid="RhzpkBaseColunmSql"/>
+            from tb_pwk_check_rhpwk A
+            left join tb_xzqh D on D.code=substr(A.code, 1, 2)||'0000'
+            left join tb_xzqh E on E.code=substr(A.code, 1, 4)||'00'
+            left join tb_xzqh F on F.code=substr(A.code, 1, 6)
+            left join tb_pwk_enum G on G.code=A.pffsyj
+            left join tb_pwk_enum I on I.code=A.pffsej
+            left join tb_pwk_enum J on J.code=A.pfzk
+            left join tb_pwk_enum K on K.code=A.pwklx
+            LEFT JOIN ( SELECT wtid, count(1) as zxbyjnum FROM tb_erjipaicha_check_buji zxb GROUP BY zxb."wtid"
+            ) zxbyj ON zxbyj.wtid = A."id"
+            LEFT JOIN ( SELECT wtid, count(1) as fkdfyjnum FROM tb_erjipaicha_queren_ssyj fk GROUP BY fk."wtid"
+            ) fkdfyj ON fkdfyj.wtid = A."id"
+
+            LEFT JOIN (
+            SELECT
+            a.id,
+            a.wtid
+            FROM
+            tb_erjipaicha_check_zuzhang a
+            WHERE
+            NOT EXISTS
+            ( SELECT 1 FROM tb_erjipaicha_check_zuzhang b WHERE b.wtid = a.wtid AND b.checktime > a.checktime )
+            ) B ON A.id = b.wtid
+
+            LEFT JOIN (
+            SELECT
+            a.id,
+            a.wtid
+            FROM
+            tb_erjipaicha_queren_dfzf a
+            WHERE
+            NOT EXISTS
+            ( SELECT 1 FROM tb_erjipaicha_queren_dfzf b WHERE b.wtid = a.wtid AND b.createtime > a.createtime )
+            ) C ON A.id = C.wtid
+        <include refid="authSql"/>
+            order by A.code asc
+        )A <include refid="RhzpkBaseSql"/>
+        <if test="limit!=0">
+            LIMIT ${limit} OFFSET (${current}-1)*${limit}
+        </if>
+    </select>
+
+    <select id="getRhpwkListCount" parameterType="com.hdsx.huanbohai.api.pwk.vo.RhpwkQueryParam" resultType="int">
+        select count(1) from (
+            select
+              <include refid="RhzpkBaseColunmSql"/>
+            from tb_pwk_check_rhpwk A
+            left join tb_xzqh D on D.code=substr(A.code, 1, 2)||'0000'
+            left join tb_xzqh E on E.code=substr(A.code, 1, 4)||'00'
+            left join tb_xzqh F on F.code=substr(A.code, 1, 6)
+            left join tb_pwk_enum G on G.code=A.pffsyj
+            left join tb_pwk_enum I on I.code=A.pffsej
+            left join tb_pwk_enum J on J.code=A.pfzk
+            left join tb_pwk_enum K on K.code=A.pwklx
+            LEFT JOIN ( SELECT wtid, count(1) as zxbyjnum FROM tb_erjipaicha_check_buji zxb GROUP BY zxb."wtid"
+            ) zxbyj ON zxbyj.wtid = A."id"
+            LEFT JOIN ( SELECT wtid, count(1) as fkdfyjnum FROM tb_erjipaicha_queren_ssyj fk GROUP BY fk."wtid"
+            ) fkdfyj ON fkdfyj.wtid = A."id"
+
+            LEFT JOIN (
+            SELECT
+            a.id,
+            a.wtid
+            FROM
+            tb_erjipaicha_check_zuzhang a
+            WHERE
+            NOT EXISTS
+            ( SELECT 1 FROM tb_erjipaicha_check_zuzhang b WHERE b.wtid = a.wtid AND b.checktime > a.checktime )
+            ) B ON A.id = b.wtid
+
+            LEFT JOIN (
+            SELECT
+            a.id,
+            a.wtid
+            FROM
+            tb_erjipaicha_queren_dfzf a
+            WHERE
+            NOT EXISTS
+            ( SELECT 1 FROM tb_erjipaicha_queren_dfzf b WHERE b.wtid = a.wtid AND b.createtime > a.createtime )
+            ) C ON A.id = C.wtid
+            <include refid="authSql"/>
+            order by A.code asc
+        )A <include refid="RhzpkBaseSql"/>
+    </select>
+
+    <sql id="BaseColunm">
+        A.id,
+        row_number()OVER() num,
+        case when A.sewageid is null then '无'
+        when A.sewageid is not null  then '有' end sewagestate,
+        A.address,
+        case when A.sfspwk=0 then '否'
+        when A.sfspwk=1  then '是' end sfspwk,
+        A.pwkName,
+        A.pfzkname,
+        A.pffsyjname ||'-'|| A.pffsejname rhfs,
+        A.pwklxname,
+        case when A.ycxcy=0 then '不需要'
+        when A.ycxcy=1  then '需要' end ycxcy,
+        case when A.sfjbcytj=0 then '否'
+        when A.sfjbcytj=1  then '是' end sfjbcytj,
+        case
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !='' then '二级排查'
+        when A.sewageid is null AND ((A.dcpcid is null AND A.dczid is null) or (A.dcpcid ='' AND A.dczid ='')) then '三级排查' end checklevel,
+        case
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !='' then 1
+        when A.sewageid is null AND ((A.dcpcid is null AND A.dczid is null) or (A.dcpcid ='' AND A.dczid ='')) then 2 end checknum,
+        case when A.zxbyjnum is null then '否'
+        when A.zxbyjnum > 0 then '是' end sftbzxbyj,
+
+        case when A.fkdfyjnum is null then '否'
+        when A.fkdfyjnum > 0 then '是' end sffkyj,
+
+        case when A.dfqrid is null then '否'
+        when A.dfqrid is not null then '是' end sftbdfyj,
+        A.createtime,
+        A.sewageid,
+        A.checkstate1,
+        case when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate1=0 then '不通过'
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate1=1  then '通过'
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate1=-1  then '未审核'
+        else '无' end checkstr1,
+        A.checkstate2,
+        case when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate2=0 then '不通过'
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate2=1  then '通过'
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''and A.checkstate2=-1  then '未审核'
+        else '无' end checkstr2,
+        A.checkstate3,
+        A.checkstate4,
+        A.zuizhong,
+        A.zzshid,
+        A.dfqrid,
+        A.code,
+        A.ptx,
+        A.pty
+    </sql>
+
+    <sql id="RhzpkBaseColunmSql">
+        A.id,
+        A.code,
+        B.id as zzshid,
+        C.id as dfqrid,
+        fkdfyj.fkdfyjnum,
+        zxbyj.zxbyjnum,
+        A.name pwkName,
+        A.createtime,
+        substr(A.code, 1, 6) xzqh,
+        D.name ||' '|| E.name ||' '||COALESCE(F.name,'')||' '|| A.address address,
+        A.pfzk,
+        J.name pfzkname,
+        A.pffsyj,
+        A.pffsej,
+        G.name pffsyjname,
+        I.name pffsejname,
+        A.pwklx,
+        K.name pwklxname,
+        A.pwklxms,
+        A.pwkzbhjremark,
+        A.remark,
+        A.sewageid,
+        A.sfspwk,
+        A.dcpcid,
+        A.dczid,
+        A.sfjbcytj,
+        A.ycxcy,
+        A.ycxcyms,
+        A.checkstate1,
+        A.checkstate2,
+        A.checkstate3,
+        A.checkstate4,
+        A.zuizhong,
+        A.ptx,
+        A.pty
+    </sql>
+
+    <sql id="RhzpkBaseSql">
+        <where>
+            1=1
+            <if test="xzqh!=null and xzqh!=''">
+                and A.xzqh like #{xzqh}||'%'
+            </if>
+            <if test="pwkName!=null and pwkName!=''">
+                and A.pwkName like '%'||#{pwkName}||'%'
+            </if>
+            <if test="sfspwk !=null">
+                and A.sfspwk = #{sfspwk}
+            </if>
+            <if test="pfzk!=null and pfzk!=''">
+                and A.pfzk = #{pfzk}
+            </if>
+            <if test="sewagestate == 0">
+                and A.sewageid is null
+            </if>
+            <if test="sewagestate == 1">
+                and A.sewageid is not null
+            </if>
+            <if test="ycxcy!=null">
+                and A.ycxcy=#{ycxcy}
+            </if>
+            <if test="sfjbcytj!=null">
+                and A.sfjbcytj=#{sfjbcytj}
+            </if>
+            <if test="pwklx!=null and pwklx!=''">
+                and A.pwklx=#{pwklx}
+            </if>
+            <if test="pffsyj!=null and pffsyj!=''">
+                and A.pffsyj=#{pffsyj}
+            </if>
+            <if test="pffsej!=null and pffsej!=''">
+                and A.pffsej=#{pffsej}
+            </if>
+            <if test="createtime != null and  createtime != ''">
+                and CAST(A.createtime AS DATE)=DATE '${createtime}'
+            </if>
+            <if test="checklevel == 1">
+                and A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !=''
+            </if>
+            <if test="checklevel == 2">
+                and A.sewageid is null AND ((A.dcpcid is null AND A.dczid is null) or (A.dcpcid ='' AND A.dczid =''))
+            </if>
+            <if test="sftbzxbyj == 0">
+                and A.zxbyjnum is null
+            </if>
+            <if test="sftbzxbyj == 1">
+                and A.zxbyjnum > 0
+            </if>
+            <if test="sftbdfyj == 0">
+                and A.dfqrid is null
+            </if>
+            <if test="sftbdfyj == 1">
+                and A.dfqrid is not null
+            </if>
+            <if test="sffkyj == 0">
+                and A.fkdfyjnum is null
+            </if>
+            <if test="sffkyj == 1">
+                and A.fkdfyjnum > 0
+            </if>
+            <if test="remark!=null and remark!=''">
+                and A.remark like '%'||#{remark}||'%'
+            </if>
+            <if test="dcxzqh!=null and dcxzqh!=''">
+                and A.xzqh like #{dcxzqh}||'%'
+            </if>
+            <if test="dcid!=null and dcid!=''">
+                and A.dczid = #{dcid}
+            </if>
+            <if test="dcpcid!=null and dcpcid!=''">
+                and A.dcpcid = #{dcpcid}
+            </if>
+        </where>
+    </sql>
+    <!--业务数据权限过滤-->
+    <sql id="authSql">
+        <where>
+          1=1
+            <if test="authCode!=null and authCode!=''">
+                and substr(A.code, 1, 6) like #{authCode}||'%'
+            </if>
+            <if test="xzqhForQXlist != null">
+            and substr(A.code,1,2) in
+            <foreach collection="xzqhForQXlist" item="a" index="index" open="(" close=")" separator=",">
+                '${a}'
+            </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <select id="getRhpwkInfo" parameterType="java.lang.String" resultType="com.hdsx.huanbohai.api.pwk.vo.RhpwkInfo">
+        select
+        <include refid="RhzpkInfoBaseColunmSql"/>
+        from tb_pwk_check_rhpwk A
+        left join (select A.*,B.name jobUnit from tb_user_info A left join tb_unit B on A."jobUnitCode"=B.code) B on B.id=A.createrid
+        left join (select A.*,B.name jobUnit from tb_user_info A left join tb_unit B on A."jobUnitCode"=B.code) C on C.id=A.checkerid
+        left join tb_xzqh D on D.code=substr(A.code, 1, 2)||'0000'
+        left join tb_xzqh E on E.code=substr(A.code, 1, 4)||'00'
+        left join tb_xzqh F on F.code=substr(A.code, 1, 6)
+        left join tb_pwk_enum G on G.code=A.pffsyj
+        left join tb_pwk_enum I on I.code=A.pffsej
+        left join tb_pwk_enum J on J.code=A.pfzk
+        left join tb_pwk_enum K on K.code=A.pwklx
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_check_zuzhang a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_check_zuzhang b WHERE b.wtid = a.wtid AND b.checktime > a.checktime )
+        ) M ON A.id = M.wtid
+
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_queren_dfzf a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_queren_dfzf b WHERE b.wtid = a.wtid AND b.createtime > a.createtime )
+        ) N ON A.id = N.wtid
+        where A.id=#{id}
+    </select>
+
+    <sql id="RhzpkInfoBaseColunmSql">
+        A.id,
+        case when A.sewageid is null then '无'
+        when A.sewageid is not null  then '有' end sewagestate,
+        A.address,
+        case when A.sfspwk=0 then '否'
+        when A.sfspwk=1  then '是' end sfspwkstr,
+        G.name ||'-'|| I.name rhfs,
+        case
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !='' then '二级排查'
+        when A.sewageid is null AND ((A.dcpcid is null AND A.dczid is null) or (A.dcpcid ='' AND A.dczid ='')) then '三级排查' end checklevel,
+        case
+        when A.dcpcid is not null AND A.dczid is not null and A.dcpcid !='' AND A.dczid !='' then 1
+        when A.sewageid is null AND ((A.dcpcid is null AND A.dczid is null) or (A.dcpcid ='' AND A.dczid ='')) then 2 end checknum,
+        A.name pwkName,
+        A.createtime,
+        substr(A.code, 1, 6) xzqh,
+        A.pfzk,
+        A.ptx,
+        A.pty,
+        J.name pfzkname,
+        A.pffsyj,
+        A.pffsej,
+        A.pwklx,
+        A.xzc,
+        K.name pwklxname,
+        A.pwklxms,
+        A.pwkzbhjremark,
+        A.sfspwk,
+        A.pfzkms,
+        A.pwklxms,
+        A.pwkzbhjremark,
+        A.remark,
+        B."realName" createrName,
+        B.jobUnit createrJobUnit,
+        A.wsyslyqt,
+        A.sfjbcytj,
+        A.ycxcy,
+        A.ycxcyms,
+        A.cod,
+        A.andan,
+        A.zonglin,
+        A.ph,
+        A.liuliang,
+        A.prhlmc,
+        A.pffsms,
+        M.id as zzshid,
+        N.id as dfqrid,
+        A.checkstate1,
+        A.checkstate2,
+        A.checkstate3,
+        A.checkstate4,
+        A.zuizhong
+    </sql>
+
+    <select id="getPwkzbhj" resultType="com.hdsx.huanbohai.api.pwk.vo.PwkzbhjInfo" parameterType="String">
+        SELECT
+            A.code,
+            A.name,
+            CASE
+                WHEN A.code = b.code THEN
+                    1
+                ELSE
+                    0
+                END checked
+        FROM
+            tb_pwk_enum A left join
+                (
+                    SELECT
+                        b.code
+                    FROM
+                        tb_pwk_pwkzbhj b
+                    WHERE
+                        b.mapperid = #{mapperid}
+                ) b on A.code = b.code
+        WHERE
+            A .parcode = '01'
+            order by a.code asc
+    </select>
+
+    <select id="getWsysly" resultType="com.hdsx.huanbohai.api.pwk.vo.WsyslyjInfo" parameterType="String">
+        SELECT
+            A.code,
+            A.name,
+            CASE
+                WHEN A.code = b.code THEN
+                    1
+                ELSE
+                    0
+                END checked
+        FROM
+            tb_pwk_enum A left join
+                (
+                    SELECT
+                        b.code
+                    FROM
+                        tb_pwk_wsysly b
+                    WHERE
+                        b.mapperid = #{mapperid}
+                ) b on A.code = b.code
+        WHERE
+            A .parcode = '05'
+        order by a.code asc
+    </select>
+
+    <delete id="deleteWsysly" parameterType="String">
+        delete from tb_pwk_wsysly where mapperid=#{mapperid}
+    </delete>
+
+    <delete id="deletePwkzbhj" parameterType="String">
+        delete from tb_pwk_pwkzbhj where mapperid=#{mapperid}
+    </delete>
+
+    <insert id="insertWsysly" parameterType="com.hdsx.huanbohai.api.request.WsyslyjRequest">
+        insert into tb_pwk_wsysly  values (#{id},#{code},#{mapperid})
+    </insert>
+
+    <insert id="insertPwkzbhj" parameterType="com.hdsx.huanbohai.api.request.PwkzbhjRequest">
+        insert into tb_pwk_pwkzbhj  values (#{id},#{code},#{mapperid})
+    </insert>
+
+    <update id="updatePwkInfo" parameterType="com.hdsx.huanbohai.api.request.RhpwkUpdateRequest">
+        update tb_pwk_check_rhpwk
+        <trim prefix="set" suffixOverrides=",">
+            <if test="name != null and name !=''">
+                "name" = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="xzqh != null and xzqh !=''">
+                "code" = #{xzqh,jdbcType=VARCHAR},
+            </if>
+            <if test="address != null and address !=''">
+                "address" = #{address,jdbcType=VARCHAR},
+            </if>
+            <if test="xzc != null and xzc !=''">
+                "xzc" = #{xzc,jdbcType=VARCHAR},
+            </if>
+            <if test="sfspwk >= 0">
+                sfspwk = #{sfspwk,jdbcType=INTEGER},
+            </if>
+            <if test="pfzk != null and pfzk !=''">
+                "pfzk" = #{pfzk,jdbcType=VARCHAR},
+            </if>
+            <if test="pffsyj != null and pffsyj != ''">
+                "pffsyj" = #{pffsyj,jdbcType=VARCHAR},
+            </if>
+            <if test="pffsej != null and pffsej != ''">
+                "pffsej" = #{pffsej,jdbcType=VARCHAR},
+            </if>
+            <if test="pwklx != null and pwklx != ''">
+                "pwklx" = #{pwklx,jdbcType=VARCHAR},
+            </if>
+            <if test="remark != null and remark !=''">
+                "remark" = #{remark,jdbcType=VARCHAR},
+            </if>
+            <if test="sfjbcytj >= 0">
+                "sfjbcytj" = #{sfjbcytj,jdbcType=INTEGER},
+            </if>
+            <if test="ycxcy >= 0">
+                "ycxcy" = #{ycxcy,jdbcType=INTEGER},
+            </if>
+            <if test="ycxcyms != null and ycxcyms !=''">
+                "ycxcyms" = #{ycxcyms,jdbcType=VARCHAR},
+            </if>
+            <if test="wsyslyqt != null and wsyslyqt !=''">
+                "wsyslyqt" = #{wsyslyqt,jdbcType=VARCHAR},
+            </if>
+            <if test="cod != null and cod !=''">
+                "cod" = #{cod,jdbcType=VARCHAR},
+            </if>
+            <if test="andan != null and andan !=''">
+                "andan" = #{andan,jdbcType=VARCHAR},
+            </if>
+            <if test="zonglin != null and zonglin !=''">
+                "zonglin" = #{zonglin,jdbcType=VARCHAR},
+            </if>
+            <if test="ph != null and ph !=''">
+                "ph" = #{ph,jdbcType=VARCHAR},
+            </if>
+            <if test="liuliang != null and liuliang !=''">
+                "liuliang" = #{liuliang,jdbcType=VARCHAR},
+            </if>
+            <if test="pwklxms != null and pwklxms !=''">
+                "pwklxms" = #{pwklxms,jdbcType=VARCHAR},
+            </if>
+            <if test="pfzkms != null and pfzkms !=''">
+                "pfzkms" = #{pfzkms,jdbcType=VARCHAR},
+            </if>
+            <if test="prhlmc != null and prhlmc !=''">
+                "prhlmc" = #{prhlmc,jdbcType=VARCHAR},
+            </if>
+            <if test="pffsms != null and pffsms !=''">
+                "pffsms" = #{pffsms,jdbcType=VARCHAR},
+            </if>
+            <if test="pwkzbhjremark != null and pwkzbhjremark !=''">
+                "pwkzbhjremark" = #{pwkzbhjremark,jdbcType=VARCHAR},
+            </if>
+        </trim>
+        where id=#{id}
+    </update>
+
+
+
+    <update id="updateCheckState" parameterType="com.hdsx.huanbohai.api.request.CheckStateRequest">
+        update tb_pwk_check_rhpwk set
+            <if test="checkstate1 !=null">
+                checkstate1 = #{checkstate1}
+            </if>
+            <if test="checkstate2 !=null">
+                checkstate2 = #{checkstate2}
+            </if>
+            <if test="checkstate3 !=null">
+                checkstate3 = #{checkstate3}
+            </if>
+            <if test="checkstate4 !=null and checkstate4 == 0">
+                checkstate4 = #{checkstate4},checkstate3 = 0
+            </if>
+            <if test="checkstate4 !=null and checkstate4 == 1">
+                checkstate4 = #{checkstate4},zuizhong = 1
+            </if>
+        where id=#{id}
+    </update>
+
+
+    <select id="getEnum" resultType="Map" parameterType="java.lang.String">
+        select code,name from tb_pwk_enum where parcode=#{parcode} order by code asc
+    </select>
+
+    <select id="getEnumList" resultType="com.hdsx.huanbohai.api.common.EnumLevel" parameterType="java.lang.String">
+        select * from tb_pwk_enum where parcode=#{parcode} order by code asc
+    </select>
+
+    <select id="getMonitorMessage" resultType="com.hdsx.huanbohai.api.pwk.vo.monitor.MonitorMessage" parameterType="String">
+        select
+            A.id,
+            A.wtid,
+            A.bz,
+            A.waiguan,
+            A.andan,
+            A.zonglin,
+            A.hxxyl,
+            A.ph,
+            A.pwkcode,
+            A.ypcode,
+            B."realName" creatername,
+            C."name" jobUnit,
+            to_char(A.createtime, 'yyyy-MM-dd hh24:mm:ss') createtime,
+            A.yandu,
+            A.syl,
+            A.xfw,
+            A.codmn,
+            A.zongdan,
+            A.tong,
+            A.qian,
+            A.xin,
+            A.ge1,
+            A.ge2,
+            A.gong,
+            A.shen
+        from tb_erjipaicha_jiance A
+                 left join tb_user_info B on A.createrid=B.ID
+                 left join tb_unit C on C.code=B."jobUnitCode"
+        where A.wtid=#{id}
+    </select>
+
+
+    <select id="getMonitorDetail" resultType="com.hdsx.huanbohai.api.pwk.vo.monitor.MonitorInfo" parameterType="String">
+        select
+            A.id,
+            COALESCE(A.wsnpfl,null) wsnpfl,
+            A.pclxid,
+            A.sjlyremark,
+            A.createrid,
+            B."realName" createName,
+            C."name" jobUnit,
+            to_char(A.createtime, 'yyyy-MM-dd hh24:mm:ss') createtime
+        from tb_pwk_rhpwk_jc A
+                 left join tb_user_info B on A.createrid=B.ID
+                 left join tb_unit C on C.code=B."jobUnitCode"
+        where A.pclxid=#{id}
+    </select>
+    <select id="getDataSource" resultType="com.hdsx.huanbohai.api.pwk.vo.DataSourceInfo" parameterType="String">
+        select
+            A.id,
+            A.mapperid,
+            A.sjlycode,
+            B.name sjlyname
+        from
+            tb_pwk_data_source A
+                left join tb_pwk_enum B on A.sjlycode=b.code
+        where A.mapperid=#{mapperid}
+    </select>
+
+    <select id="getPollution" parameterType="String" resultType="com.hdsx.huanbohai.api.pwk.vo.PollutInfo">
+        SELECT
+            A.ID,
+            A.pjnd,
+            A.nrhl,
+            A.mapperid,
+            A.parxmcode,
+            A.xmcode,
+            C.NAME projectname,
+            B.NAME pollutename
+        FROM
+            tb_pwk_contaminant_type_report A
+                LEFT JOIN tb_pwk_jcxm B ON A.xmcode = B.code
+                LEFT JOIN tb_pwk_jcxm C ON A.parxmcode = C.code
+        where A.mapperid = #{id}
+    </select>
+
+    <update id="updateMonitorMessage" parameterType="com.hdsx.huanbohai.api.request.MonitorMessageRequest">
+    update tb_erjipaicha_jiance
+            set
+            ph=#{ph},
+            hxxyl=#{hxxyl},
+            zonglin=#{zonglin},
+            andan=#{andan},
+            waiguan=#{waiguan},
+            bz=#{bz},
+            yandu=#{yandu},
+            syl=#{syl},
+            xfw=#{xfw},
+            codmn=#{codmn},
+            zongdan=#{zongdan},
+            tong=#{tong},
+            qian=#{qian},
+            xin=#{xin},
+            ge1=#{ge1},
+            ge2=#{ge2},
+            gong=#{gong},
+            shen=#{shen}
+    where id=#{id}
+    </update>
+    <insert id="saveMonitorMessage" parameterType="com.hdsx.huanbohai.api.request.MonitorMessageRequest">
+    insert into tb_erjipaicha_jiance
+    values
+    (#{id},#{wtid},#{ph},#{hxxyl},#{zonglin},#{andan},#{waiguan},#{bz},#{createtime},#{createrid},#{pwkcode},#{ypcode},
+    #{yandu},
+    #{syl},
+    #{xfw},
+    #{codmn},
+    #{zongdan},
+    #{tong},
+    #{qian},
+    #{xin},
+    #{ge1},
+    #{ge2},
+    #{gong},
+    #{shen})
+    </insert>
+
+    <select id="getRhpwkListByTeam" parameterType="com.hdsx.huanbohai.api.pwk.vo.RhpwkQueryRequest"
+            resultType="com.hdsx.huanbohai.api.pwk.vo.RhpwkList">
+        select
+        <include refid="BaseColunm"/>
+        from (
+        select
+        <include refid="RhzpkBaseColunmSql"/>
+        from tb_pwk_check_rhpwk A
+        left join tb_xzqh D on D.code=substr(A.code, 1, 2)||'0000'
+        left join tb_xzqh E on E.code=substr(A.code, 1, 4)||'00'
+        left join tb_xzqh F on F.code=substr(A.code, 1, 6)
+        left join tb_pwk_enum G on G.code=A.pffsyj
+        left join tb_pwk_enum I on I.code=A.pffsej
+        left join tb_pwk_enum J on J.code=A.pfzk
+        left join tb_pwk_enum K on K.code=A.pwklx
+        LEFT JOIN ( SELECT wtid, count(1) as zxbyjnum FROM tb_erjipaicha_check_buji zxb GROUP BY zxb."wtid"
+        ) zxbyj ON zxbyj.wtid = A."id"
+        LEFT JOIN ( SELECT wtid, count(1) as fkdfyjnum FROM tb_erjipaicha_queren_ssyj fk GROUP BY fk."wtid"
+        ) fkdfyj ON fkdfyj.wtid = A."id"
+
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_check_zuzhang a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_check_zuzhang b WHERE b.wtid = a.wtid AND b.checktime > a.checktime )
+        ) B ON A.id = b.wtid
+
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_queren_dfzf a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_queren_dfzf b WHERE b.wtid = a.wtid AND b.createtime > a.createtime )
+        ) C ON A.id = C.wtid
+        <include refid="TeamAuthSql"/>
+        order by A.code asc
+        )A <include refid="RhzpkBaseSql"/>
+        <if test="limit!=0">
+            LIMIT ${limit} OFFSET (${current}-1)*${limit}
+        </if>
+    </select>
+
+    <select id="getRhpwkListCountByTeam" parameterType="com.hdsx.huanbohai.api.pwk.vo.RhpwkQueryRequest" resultType="int">
+        select count(1) from (
+        select
+        <include refid="RhzpkBaseColunmSql"/>
+        from tb_pwk_check_rhpwk A
+        left join tb_xzqh D on D.code=substr(A.code, 1, 2)||'0000'
+        left join tb_xzqh E on E.code=substr(A.code, 1, 4)||'00'
+        left join tb_xzqh F on F.code=substr(A.code, 1, 6)
+        left join tb_pwk_enum G on G.code=A.pffsyj
+        left join tb_pwk_enum I on I.code=A.pffsej
+        left join tb_pwk_enum J on J.code=A.pfzk
+        left join tb_pwk_enum K on K.code=A.pwklx
+        LEFT JOIN ( SELECT wtid, count(1) as zxbyjnum FROM tb_erjipaicha_check_buji zxb GROUP BY zxb."wtid"
+        ) zxbyj ON zxbyj.wtid = A."id"
+        LEFT JOIN ( SELECT wtid, count(1) as fkdfyjnum FROM tb_erjipaicha_queren_ssyj fk GROUP BY fk."wtid"
+        ) fkdfyj ON fkdfyj.wtid = A."id"
+
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_check_zuzhang a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_check_zuzhang b WHERE b.wtid = a.wtid AND b.checktime > a.checktime )
+        ) B ON A.id = b.wtid
+
+        LEFT JOIN (
+        SELECT
+        a.id,
+        a.wtid
+        FROM
+        tb_erjipaicha_queren_dfzf a
+        WHERE
+        NOT EXISTS
+        ( SELECT 1 FROM tb_erjipaicha_queren_dfzf b WHERE b.wtid = a.wtid AND b.createtime > a.createtime )
+        ) C ON A.id = C.wtid
+        <include refid="TeamAuthSql"/>
+        order by A.code asc
+        )A <include refid="RhzpkBaseSql"/>
+    </select>
+
+
+    <sql id="TeamAuthSql">
+        <where>
+            1=1
+            <if test="surverId!=null and surverId!=''">
+                and A.dcpcid = #{surverId}
+            </if>
+            <if test="teamIds != null">
+                and A.dczid in
+                <foreach collection="teamIds" item="team" index="index" open="(" close=")" separator=",">
+                    '${team}'
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <select id="getCountByXzqh" parameterType="Map" resultType="int">
+     SELECT count(*) FROM tb_pwk_check_rhpwk rhzpk where code like '${xzqh}%'
+    </select>
+</mapper>
